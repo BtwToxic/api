@@ -1,15 +1,14 @@
 import asyncio
 import requests
 from pyrogram import Client, filters
-from pyrogram.errors import UserAlreadyParticipant
 from pytgcalls import PyTgCalls
 from pytgcalls.types import MediaStream
+from pytgcalls.types import AudioPiped  # Naye version ke liye zaroori import
 
 # ================= CONFIG =================
 
 API_ID = 21705136
 API_HASH = "78730e89d196e160b0f1992018c6cb19"
-
 BOT_TOKEN = "8094733589:AAGTYB6rmrT5Z7UOrRAxTBfbdzthlV9hZW4"   
 USER_SESSION = "BQHjcR4AqDhgN5wBQ0HGXdB-EuCqpJR-X5WSkzIl4rtnE2Th0GuKdTkiB7cBGv1yQktvkMX_IYNbmyc50ttgcbbiEh1aq9zRsZqsulQmLz412A_2PCC2z6iN0S0_09c2KgS-iB-MZppIs2ejlfFRwt1_lzzvsJdDC2BD6LkCKx_BXTS2xiXOLqBcraop--fRM1LxQ0i3BkZVfgAPnURFuJLhiWpF7HlmrlvHalduG6Q2zKw6hAtcnTbtZmmcM58U8oXdt3_KYMgi1s4BDiT31_lf6ncgcJZnZd3XH4sXX4EBYZne4uSiH2fVa-ChQN8Ff74YbJQo15NqD-dXpYY7P9o_kDPRngAAAAGd7PcCAA"  
 
@@ -29,10 +28,8 @@ userbot = Client(
     "assistant",
     api_id=API_ID,
     api_hash=API_HASH,
-    session_name=USER_SESSION, # Change session_string to session_name
-    in_memory=True
+    session_string=USER_SESSION, # Pyrogram v2.0+ mein 'session_string' hi use hota hai
 )
-
 
 vc = PyTgCalls(userbot)
 
@@ -41,10 +38,12 @@ vc = PyTgCalls(userbot)
 async def ensure_assistant(chat_id):
     try:
         await userbot.get_chat_member(chat_id, "me")
-        return
-    except:
-        link = await bot.create_chat_invite_link(chat_id, member_limit=1)
-        await userbot.join_chat(link.invite_link)
+    except Exception:
+        try:
+            invite_link = await bot.export_chat_invite_link(chat_id)
+            await userbot.join_chat(invite_link)
+        except Exception as e:
+            print(f"Assistant join error: {e}")
 
 # ================= PLAY COMMAND =================
 
@@ -59,21 +58,26 @@ async def play_cmd(_, message):
     try:
         await ensure_assistant(message.chat.id)
 
+        # Sync request ko block hone se bachane ke liye timeout zaroori hai
         r = requests.get(
             YT_API,
             params={"key": API_KEY, "song": query},
             timeout=15
         ).json()
 
-        if "stream_url" not in r:
+        if not r.get("stream_url"):
             return await msg.edit("❌ Song not found")
 
+        # PyTgCalls v2.x Play Logic
         await vc.play(
             message.chat.id,
-            MediaStream(r["stream_url"])
+            MediaStream(
+                r["stream_url"],
+                AudioPiped(), # Audio stream define karna zaroori hai
+            )
         )
 
-        await msg.edit(f"▶️ Now Playing: `{r.get('title', query)}`")
+        await msg.edit(f"▶️ **Now Playing:** `{r.get('title', query)}`")
 
     except Exception as e:
         await msg.edit(f"❌ Error: `{e}`")
@@ -84,7 +88,9 @@ async def main():
     await bot.start()
     await userbot.start()
     await vc.start()
-    print("✅ Bot + Assistant Online")
+    print("✅ Bot + Assistant Online (v2.x compatible)")
     await asyncio.Event().wait()
 
-asyncio.run(main())
+if __name__ == "__main__":
+    asyncio.run(main())
+    
