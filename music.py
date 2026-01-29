@@ -2,10 +2,9 @@ import os
 import requests
 import asyncio
 
-from pyrogram import Client, filters
+from hydrogram import Client, filters
 from pytgcalls import PyTgCalls
-from pytgcalls.types.input_stream import AudioPiped
-from pytgcalls.types.input_stream.quality import HighQualityAudio
+from pytgcalls.types import MediaStream
 
 # ================= CONFIG =================
 API_ID = 21705136
@@ -32,32 +31,32 @@ async def play(_, message):
         return await message.reply("❌ Usage: /play song name")
 
     song = " ".join(message.command[1:])
-    await message.reply(f"🔎 Searching **{song}**")
+    m = await message.reply(f"🔎 Searching **{song}**")
 
     try:
         r = requests.get(YT_API, params={"key": API_KEY, "song": song})
         data = r.json()
         stream_url = data["stream_url"]
         title = data.get("title", song)
-    except:
-        return await message.reply("❌ API Error")
+    except Exception as e:
+        return await m.edit(f"❌ API Error: {e}")
 
-    # Version 1.2.1 syntax
-    stream = AudioPiped(stream_url, HighQualityAudio())
+    # Latest PyTgCalls (v2.x) syntax
+    stream = MediaStream(stream_url)
 
     try:
-        await vc.join_group_call(message.chat.id, stream)
-    except:
-        # Agar call already chal rahi hai
-        await vc.change_stream(message.chat.id, stream)
-
-    await message.reply(f"▶️ **Now Playing:** `{title}`")
+        await vc.play(message.chat.id, stream)
+        await m.edit(f"▶️ **Now Playing:** `{title}`")
+    except Exception as e:
+        await m.edit(f"❌ Error: {e}")
 
 # ================= START =================
 async def main():
     await app.start()
     await vc.start()
-    print("🎵 VC Music Bot Started (Stable Version)")
+    print("🎵 Music Bot Started with Hydrogram!")
     await asyncio.Event().wait()
 
-asyncio.run(main())
+if __name__ == "__main__":
+    asyncio.run(main())
+    
