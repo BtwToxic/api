@@ -3,8 +3,8 @@ import requests
 import asyncio
 
 from pyrogram import Client, filters
-from pytgcalls.py_tgcalls import PyTgCalls
-from pytgcalls.types.input_stream import AudioPiped
+from pytgcalls import PyTgCalls
+from pytgcalls.types import MediaStream
 
 # ================= CONFIG =================
 API_ID = 21705136
@@ -33,29 +33,39 @@ async def play(_, message):
     song = " ".join(message.command[1:])
     await message.reply(f"🔎 Searching **{song}**")
 
-    r = requests.get(YT_API, params={
-        "key": API_KEY,
-        "song": song
-    })
+    try:
+        r = requests.get(YT_API, params={
+            "key": API_KEY,
+            "song": song
+        })
 
-    if r.status_code != 200:
-        return await message.reply("❌ API error")
+        if r.status_code != 200:
+            return await message.reply("❌ API error")
 
-    data = r.json()
-    stream_url = data["stream_url"]
-    title = data.get("title", song)
+        data = r.json()
+        
+        # Check for specific API error format
+        if "error" in data:
+             return await message.reply(f"❌ API Error: {data['error']}")
 
-    stream = InputAudioStream(
+        stream_url = data["stream_url"]
+        title = data.get("title", song)
+
+    except Exception as e:
+        return await message.reply(f"❌ Error fetching song: {e}")
+
+    # PyTgCalls v1.x update: Use MediaStream
+    stream = MediaStream(
         stream_url,
-        HighQualityAudio()
+        video_flags=MediaStream.Flags.IGNORE # Audio only
     )
 
     try:
-        await vc.join_group_call(message.chat.id, stream)
-    except:
-        await vc.change_stream(message.chat.id, stream)
-
-    await message.reply(f"▶️ **Now Playing:** `{title}`")
+        # PyTgCalls v1.x update: Use vc.play instead of join_group_call
+        await vc.play(message.chat.id, stream)
+        await message.reply(f"▶️ **Now Playing:** `{title}`")
+    except Exception as e:
+        await message.reply(f"❌ Error joining VC: {e}")
 
 # ================= START =================
 async def main():
@@ -64,4 +74,6 @@ async def main():
     print("🎵 VC Music Bot Started")
     await asyncio.Event().wait()
 
-asyncio.run(main())
+if __name__ == "__main__":
+    asyncio.run(main())
+    
