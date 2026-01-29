@@ -8,9 +8,9 @@ from pytgcalls.types import MediaStream
 # ================= CONFIG =================
 
 API_ID = 21705136
-API_HASH = ""
+API_HASH = "78730e89d196e160b0f1992018c6cb19"
 
-BOT_TOKEN = ""   
+BOT_TOKEN = "8094733589:AAGTYB6rmrT5Z7UOrRAxTBfbdzthlV9hZW4"   
 USER_SESSION = ""  
 
 YT_API = "http://103.25.175.169:8000/toxic/api"
