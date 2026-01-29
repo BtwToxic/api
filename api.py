@@ -99,10 +99,14 @@ def pop_queue():
     return json.loads(items[0])
 
 # ---------------- ADMIN ----------------
-@app.post("/key/gen")
-def api_gen_key(plan: str = "free"):
-    key = gen_key(plan)
-    return {"api_key": key, "plan": plan}
+@app.get("/key/gen")
+async def gen_key_web():
+    key = secrets.token_hex(16)
+    redis.hset(f"key:{key}", mapping={
+        "plan": "free",
+        "expires": 0
+    })
+    return {"api_key": key, "plan": "free"}
 
 @app.post("/key/revoke")
 def api_revoke(key: str):
