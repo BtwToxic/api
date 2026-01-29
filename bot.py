@@ -2,7 +2,7 @@ import asyncio
 import aiohttp
 from pyrogram import Client, filters
 from pyrogram.types import Message
-from pytgcalls import PyTgCalls
+from pytgcalls import PyTgCall
 from pytgcalls.types.input_stream import AudioPiped
 
 # ================= CONFIG =================
@@ -26,7 +26,7 @@ bot = Client("main_bot", api_id=API_ID, api_hash=API_HASH, bot_token=BOT_TOKEN)
 user = Client("assistant_user", api_id=API_ID, api_hash=API_HASH, session_string=STRING_SESSION)
 
 # 3. PyTgCalls (Userbot ko wrap karega)
-call_py = PyTgCalls(user)
+call_py = PyTgCall(user)
 
 # ================= HELPER FUNCTIONS =================
 
