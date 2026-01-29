@@ -1,77 +1,89 @@
-import os
-import requests
 import asyncio
-from hydrogram import Client, filters
+import requests
+from pyrogram import Client, filters
+from pyrogram.errors import UserAlreadyParticipant
 from pytgcalls import PyTgCalls
 from pytgcalls.types import MediaStream
 
 # ================= CONFIG =================
+
 API_ID = 21705136
-API_HASH = "78730e89d196e160b0f1992018c6cb19"
-SESSION = "BQHjcR4AkzdKizjCZVXQ4KhaaS1IUvjvsBjIlNySDNNSskwJGwrql4RhgW3MBAlAfjJVXB2fM-aH0AmJBcVWYyuVSuDMw9D5493u7v60qDsbpRzD0vnFcHxzCSn0MRLacfgpYhtM-8_n0Qzcso8ety4NpASwXYSuXz1vFXWA5LRsXyKhkwE1bHroYix1rGkjkPCTY_bC3Uby3V5RMxckxlhf8ivZX098cZNutTw_yNXEod2ILMjwG6Taswze1wuD4u29p5GCRPP7wU56FYLB5DtH6qpWiq26vUcZZJifV2S7HUTPGatyIBhLmbbFOTX7aGczONHZgtwRqFUjRlOwz-26zlDAPwAAAAGd7PcCAA"
+API_HASH = ""
+
+BOT_TOKEN = ""   
+USER_SESSION = ""  
 
 YT_API = "http://103.25.175.169:8000/toxic/api"
 API_KEY = "3e8abdb2e25f02a53dcdef45eb20790e"
 
-# ================= CLIENT =================
-app = Client(
-    name="assistant",
+# ================= CLIENTS =================
+
+bot = Client(
+    "music_bot",
     api_id=API_ID,
     api_hash=API_HASH,
-    session_string=SESSION,
-    in_memory=True # Pyrogram session compatibility ke liye
+    bot_token=BOT_TOKEN
 )
 
-vc = PyTgCalls(app)
+userbot = Client(
+    "assistant",
+    api_id=API_ID,
+    api_hash=API_HASH,
+    session_string=USER_SESSION,
+    in_memory=True
+)
+
+vc = PyTgCalls(userbot)
+
+# ================= HELPER =================
+
+async def ensure_assistant(chat_id):
+    try:
+        await userbot.get_chat_member(chat_id, "me")
+        return
+    except:
+        link = await bot.create_chat_invite_link(chat_id, member_limit=1)
+        await userbot.join_chat(link.invite_link)
 
 # ================= PLAY COMMAND =================
-@app.on_message(filters.text & filters.me)
-async def play_cmd(client, message):
-    if not message.text:
-        return
 
-    if not message.text.startswith(("/play", ".play", "!play")):
-        return
+@bot.on_message(filters.command("play") & filters.group)
+async def play_cmd(_, message):
+    if len(message.command) < 2:
+        return await message.reply("❌ Usage: /play song name")
 
-    print("📥 PLAY COMMAND RECEIVED")
-
-    parts = message.text.split(maxsplit=1)
-    if len(parts) < 2:
-        await message.reply("❌ Usage: /play song name")
-        return
-
-    query = parts[1]
-    m = await message.reply(f"🔎 Searching: `{query}`")
+    query = " ".join(message.command[1:])
+    msg = await message.reply("🔎 Searching...")
 
     try:
+        await ensure_assistant(message.chat.id)
+
         r = requests.get(
             YT_API,
             params={"key": API_KEY, "song": query},
             timeout=15
-        )
-        data = r.json()
+        ).json()
 
-        if "stream_url" not in data:
-            return await m.edit("❌ Song not found")
+        if "stream_url" not in r:
+            return await msg.edit("❌ Song not found")
 
         await vc.play(
             message.chat.id,
-            MediaStream(data["stream_url"])
+            MediaStream(r["stream_url"])
         )
 
-        await m.edit(f"▶️ Now Playing: `{data.get('title', query)}`")
+        await msg.edit(f"▶️ Now Playing: `{r.get('title', query)}`")
 
     except Exception as e:
-        print(e)
-        await m.edit(f"❌ Error: `{e}`")
-        
+        await msg.edit(f"❌ Error: `{e}`")
+
 # ================= START =================
+
 async def main():
-    await app.start()
+    await bot.start()
+    await userbot.start()
     await vc.start()
-    print("✅ Assistant is Online!")
+    print("✅ Bot + Assistant Online")
     await asyncio.Event().wait()
 
-if __name__ == "__main__":
-    asyncio.run(main())
-    
+asyncio.run(main())
