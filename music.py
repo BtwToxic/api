@@ -1,8 +1,15 @@
 import asyncio
 import requests
 from pyrogram import Client, filters
+
+# --- VO VERSION CONFLICT FIX (JUGAAD) ---
+import pyrogram.errors
+if not hasattr(pyrogram.errors, "GroupcallForbidden"):
+    pyrogram.errors.GroupcallForbidden = type("GroupcallForbidden", (Exception,), {})
+# ----------------------------------------
+
 from pytgcalls import PyTgCalls
-from pytgcalls.types import MediaStream # Direct import
+from pytgcalls.types import MediaStream
 
 # ================= CONFIG =================
 API_ID = 21705136
@@ -41,19 +48,15 @@ async def play_cmd(_, message):
 
     try:
         await ensure_assistant(message.chat.id)
-
         r = requests.get(YT_API, params={"key": API_KEY, "song": query}, timeout=15).json()
 
         if "stream_url" not in r:
             return await msg.edit("❌ Song not found")
 
-        # Py-TgCalls 2.2.10 ke liye sabse simple tareeka
-        # Yahan AudioPiped ki zaroorat nahi, MediaStream khud handle kar lega
         await vc.play(
             message.chat.id,
             MediaStream(path=r["stream_url"]) 
         )
-
         await msg.edit(f"▶️ Now Playing: `{r.get('title', query)}`")
 
     except Exception as e:
@@ -69,4 +72,3 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
-    
