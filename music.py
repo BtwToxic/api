@@ -56,10 +56,6 @@ async def play_cmd(client, message):
 
     await m.edit(f"▶️ Now Playing: `{data.get('title', query)}`")
 
-    except Exception as e:
-        print(f"❌ Error: {e}")
-        await m.edit(f"❌ Error: {e}")
-
 # ================= START =================
 async def main():
     await app.start()
