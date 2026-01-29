@@ -25,34 +25,36 @@ app = Client(
 vc = PyTgCalls(app)
 
 # ================= PLAY COMMAND =================
-# Assistant ke liye 'group=1' rakha hai aur filters simplify kiye hain
-@app.on_message(filters.command("play", prefixes=["/", ".", "!"]))
+@app.on_message(
+    filters.command("play", prefixes=["/", ".", "!"])
+    & (filters.me | filters.outgoing)
+)
 async def play_cmd(client, message):
-    # Log to check if command is received
-    print(f"📥 Command Received: {message.text}")
-    
+    print("📥 PLAY COMMAND TRIGGERED")
+
     if len(message.command) < 2:
-        return await message.reply("❌ Usage: `/play song name`")
+        await message.reply("❌ Usage: /play song name")
+        return
 
     query = " ".join(message.command[1:])
-    m = await message.reply(f"🔎 Searching: `{query}`...")
+    m = await message.reply(f"🔎 Searching: `{query}`")
 
-    try:
-        r = requests.get(YT_API, params={"key": API_KEY, "song": query}, timeout=15)
-        data = r.json()
-        
-        if "stream_url" not in data:
-            return await m.edit("❌ Song not found in API.")
+    r = requests.get(
+        YT_API,
+        params={"key": API_KEY, "song": query},
+        timeout=15
+    )
 
-        stream_url = data["stream_url"]
-        title = data.get("title", "Music")
+    data = r.json()
+    if "stream_url" not in data:
+        return await m.edit("❌ Song not found")
 
-        # Playing Logic
-        await vc.play(
-            message.chat.id,
-            MediaStream(stream_url)
-        )
-        await m.edit(f"▶️ **Now Playing:** `{title}`")
+    await vc.play(
+        message.chat.id,
+        MediaStream(data["stream_url"])
+    )
+
+    await m.edit(f"▶️ Now Playing: `{data.get('title', query)}`")
 
     except Exception as e:
         print(f"❌ Error: {e}")
