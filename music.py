@@ -2,7 +2,7 @@ import asyncio
 import requests
 
 from pyrogram import Client, filters
-from pytgcalls import PyTgCallsClient
+from pytgcalls import PyTgCalls
 from pytgcalls.types.input_stream import InputAudioStream
 from pytgcalls.types.input_stream.quality import HighQualityAudio
 
@@ -16,15 +16,15 @@ API_KEY = "3e8abdb2e25f02a53dcdef45eb20790e"
 
 # ================= CLIENT =================
 app = Client(
-    "music",
+    name="music",
     api_id=API_ID,
     api_hash=API_HASH,
     session_string=SESSION
 )
 
-vc = PyTgCallsClient(app)
+vc = PyTgCalls(app)
 
-# ================= COMMAND =================
+# ================= PLAY COMMAND =================
 @app.on_message(filters.command("play") & filters.group)
 async def play(_, message):
     if len(message.command) < 2:
@@ -33,7 +33,6 @@ async def play(_, message):
     song = " ".join(message.command[1:])
     await message.reply(f"🔎 Searching **{song}**")
 
-    # API call
     r = requests.get(YT_API, params={
         "key": API_KEY,
         "song": song
@@ -46,23 +45,15 @@ async def play(_, message):
     stream_url = data["stream_url"]
     title = data.get("title", song)
 
-    # JOIN / CHANGE VC STREAM
+    stream = InputAudioStream(
+        stream_url,
+        HighQualityAudio()
+    )
+
     try:
-        await vc.join_group_call(
-            message.chat.id,
-            InputAudioStream(
-                stream_url,
-                HighQualityAudio()
-            )
-        )
+        await vc.join_group_call(message.chat.id, stream)
     except:
-        await vc.change_stream(
-            message.chat.id,
-            InputAudioStream(
-                stream_url,
-                HighQualityAudio()
-            )
-        )
+        await vc.change_stream(message.chat.id, stream)
 
     await message.reply(f"▶️ **Now Playing:** `{title}`")
 
