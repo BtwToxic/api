@@ -3,8 +3,9 @@ import requests
 import asyncio
 
 from pyrogram import Client, filters
-from pytgcalls import PyTgCalls as PyTgCalls
+from pytgcalls.py_tgcalls import PyTgCalls
 from pytgcalls.types.input_stream import AudioPiped
+
 # ================= CONFIG =================
 API_ID = 21705136
 API_HASH = "78730e89d196e160b0f1992018c6cb19"
