@@ -47,25 +47,30 @@ class YTApi:
 
         return await asyncio.to_thread(_search)
 
-    async def download(self, video_id: str):
-        path = f"{DOWNLOAD_FOLDER}/{video_id}.webm"
-        if Path(path).exists():
-            return path
+    async def _download():
+    ydl_opts = {
+        "format": "bestaudio/best",
+        "quiet": True,
+        "noplaylist": True,
 
-        ydl_opts = {
-            "format": "bestaudio[ext=webm][acodec=opus]",
-            "outtmpl": path,
-            "quiet": True,
-            "nocheckcertificate": True,
-            "geo_bypass": True
-        }
+        # 🔥 IMPORTANT FIX
+        "extractor_args": {
+            "youtube": {
+                "player_client": ["android"],
+                "skip": ["webpage"]
+            }
+        },
 
-        def _download():
-            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                ydl.download([self.base + video_id])
+        # fake headers
+        "http_headers": {
+            "User-Agent": "com.google.android.youtube/19.09.37 (Linux; U; Android 11)"
+        },
 
-        await asyncio.to_thread(_download)
-        return path
+        "outtmpl": f"{DOWNLOAD_FOLDER}/{video_id}.%(ext)s"
+    }
+
+    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+        ydl.download([self.base + video_id])
 
 yt_api = YTApi()
 
