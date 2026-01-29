@@ -50,25 +50,23 @@ class YTApi:
             return out
 
         ydl_opts = {
-            "format": "bestaudio[ext=m4a]/bestaudio",
             "quiet": True,
             "noplaylist": True,
+            "format": "bestaudio/best",
 
-            # 🔥 ANTI-403 FIX
+            # ✅ MOST STABLE FIX
             "extractor_args": {
                 "youtube": {
-                    "player_client": ["android_music", "android"],
-                    "player_skip": ["webpage", "configs"]
+                    "player_client": ["web"]
                 }
             },
 
             "http_headers": {
-                "User-Agent":
-                    "com.google.android.apps.youtube.music/6.04.52 "
-                    "(Linux; Android 14)"
+                "User-Agent": "Mozilla/5.0"
             },
 
-            "outtmpl": out
+            "outtmpl": out,
+            "merge_output_format": "m4a",
         }
 
         def _dl():
