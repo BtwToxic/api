@@ -29,9 +29,10 @@ userbot = Client(
     "assistant",
     api_id=API_ID,
     api_hash=API_HASH,
-    session_string=USER_SESSION,
+    session_name=USER_SESSION, # Change session_string to session_name
     in_memory=True
 )
+
 
 vc = PyTgCalls(userbot)
 
