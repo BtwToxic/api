@@ -2,8 +2,7 @@ import asyncio
 import requests
 from pyrogram import Client, filters
 from pytgcalls import PyTgCalls
-from pytgcalls.types import MediaStream
-from pytgcalls.types.stream import AudioPiped 
+from pytgcalls.types import MediaStream # Direct import
 
 # ================= CONFIG =================
 API_ID = 21705136
@@ -18,11 +17,20 @@ API_KEY = "3e8abdb2e25f02a53dcdef45eb20790e"
 bot = Client("music_bot", api_id=API_ID, api_hash=API_HASH, bot_token=BOT_TOKEN)
 userbot = Client("assistant", api_id=API_ID, api_hash=API_HASH, session_string=USER_SESSION)
 
-# PyTgCalls initialization
 vc = PyTgCalls(userbot)
 
-# ================= PLAY COMMAND =================
+# ================= HELPER =================
+async def ensure_assistant(chat_id):
+    try:
+        await userbot.get_chat_member(chat_id, "me")
+    except:
+        try:
+            link = await bot.export_chat_invite_link(chat_id)
+            await userbot.join_chat(link)
+        except Exception as e:
+            print(f"Join Error: {e}")
 
+# ================= PLAY COMMAND =================
 @bot.on_message(filters.command("play") & filters.group)
 async def play_cmd(_, message):
     if len(message.command) < 2:
@@ -32,37 +40,31 @@ async def play_cmd(_, message):
     msg = await message.reply("🔎 Searching...")
 
     try:
-        # Assistant check
         await ensure_assistant(message.chat.id)
 
-        r = requests.get(
-            YT_API,
-            params={"key": API_KEY, "song": query},
-            timeout=15
-        ).json()
+        r = requests.get(YT_API, params={"key": API_KEY, "song": query}, timeout=15).json()
 
         if "stream_url" not in r:
             return await msg.edit("❌ Song not found")
 
-        # Play Logic for v2.x
+        # Py-TgCalls 2.2.10 ke liye sabse simple tareeka
+        # Yahan AudioPiped ki zaroorat nahi, MediaStream khud handle kar lega
         await vc.play(
             message.chat.id,
-            MediaStream(
-                r["stream_url"],
-                AudioPiped(), # Iska import fix ho gaya hai
-            )
+            MediaStream(path=r["stream_url"]) 
         )
 
         await msg.edit(f"▶️ Now Playing: `{r.get('title', query)}`")
 
     except Exception as e:
         await msg.edit(f"❌ Error: `{e}`")
+
 # ================= START =================
 async def main():
     await bot.start()
     await userbot.start()
     await vc.start()
-    print("✅ Bot is Online!")
+    print("✅ System Online!")
     await asyncio.Event().wait()
 
 if __name__ == "__main__":
