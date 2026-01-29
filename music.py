@@ -1,9 +1,6 @@
-
 import os
 import requests
 import asyncio
-import logging
-
 from hydrogram import Client, filters
 from pytgcalls import PyTgCalls
 from pytgcalls.types import MediaStream
@@ -18,67 +15,56 @@ API_KEY = "3e8abdb2e25f02a53dcdef45eb20790e"
 
 # ================= CLIENT =================
 app = Client(
-    name="music_bot",
+    name="assistant",
     api_id=API_ID,
     api_hash=API_HASH,
-    session_string=SESSION
+    session_string=SESSION,
+    in_memory=True # Pyrogram session compatibility ke liye
 )
 
 vc = PyTgCalls(app)
 
-# ================= DEBUG WATCHER (Har Message Print Karega) =================
-# Ye check karega ki bot message dekh pa raha hai ya nahi
-@app.on_message(filters.text, group=-1)
-async def watcher(_, message):
-    print(f"👀 Message Seen: '{message.text}' from {message.from_user.id if message.from_user else 'Unknown'}")
-
 # ================= PLAY COMMAND =================
-# 'filters.group' hata diya hai taaki PM me bhi check kar sako
-# 'filters.me' add kiya hai taaki khud ke commands bhi chalne
-@app.on_message(filters.command("play", prefixes=["/", "!", "."]))
-async def play(client, message):
-    print("✅ Play Command Triggered!") 
-
+# Assistant ke liye 'group=1' rakha hai aur filters simplify kiye hain
+@app.on_message(filters.command("play", prefixes=["/", ".", "!"]))
+async def play_cmd(client, message):
+    # Log to check if command is received
+    print(f"📥 Command Received: {message.text}")
+    
     if len(message.command) < 2:
         return await message.reply("❌ Usage: `/play song name`")
 
     query = " ".join(message.command[1:])
-    m = await message.reply(f"🔎 **Searching:** `{query}`...")
+    m = await message.reply(f"🔎 Searching: `{query}`...")
 
     try:
-        r = requests.get(YT_API, params={"key": API_KEY, "song": query})
+        r = requests.get(YT_API, params={"key": API_KEY, "song": query}, timeout=15)
         data = r.json()
         
-        if "error" in data:
-            return await m.edit(f"❌ API Error: {data['error']}")
+        if "stream_url" not in data:
+            return await m.edit("❌ Song not found in API.")
 
-        stream_url = data.get("stream_url")
-        title = data.get("title", query)
+        stream_url = data["stream_url"]
+        title = data.get("title", "Music")
 
-        if not stream_url:
-            return await m.edit("❌ Song not found.")
-
-    except Exception as e:
-        return await m.edit(f"❌ API Error: {e}")
-
-    try:
-        # Playing logic
-        stream = MediaStream(stream_url, video_flags=MediaStream.Flags.IGNORE)
-        await vc.play(message.chat.id, stream)
+        # Playing Logic
+        await vc.play(
+            message.chat.id,
+            MediaStream(stream_url)
+        )
         await m.edit(f"▶️ **Now Playing:** `{title}`")
+
     except Exception as e:
-        await m.edit(f"❌ VC Error: {e}")
+        print(f"❌ Error: {e}")
+        await m.edit(f"❌ Error: {e}")
 
 # ================= START =================
 async def main():
-    print("🔄 Starting Bot...")
     await app.start()
-    print("✅ Bot Started. Waiting for commands...")
-    
     await vc.start()
-    print("✅ PyTgCalls Started.")
-    
+    print("✅ Assistant is Online!")
     await asyncio.Event().wait()
 
 if __name__ == "__main__":
     asyncio.run(main())
+    
