@@ -25,37 +25,46 @@ app = Client(
 vc = PyTgCalls(app)
 
 # ================= PLAY COMMAND =================
-@app.on_message(
-    filters.command("play", prefixes=["/", ".", "!"])
-    & (filters.me | filters.outgoing)
-)
+@app.on_message(filters.text & filters.me)
 async def play_cmd(client, message):
-    print("📥 PLAY COMMAND TRIGGERED")
+    if not message.text:
+        return
 
-    if len(message.command) < 2:
+    if not message.text.startswith(("/play", ".play", "!play")):
+        return
+
+    print("📥 PLAY COMMAND RECEIVED")
+
+    parts = message.text.split(maxsplit=1)
+    if len(parts) < 2:
         await message.reply("❌ Usage: /play song name")
         return
 
-    query = " ".join(message.command[1:])
+    query = parts[1]
     m = await message.reply(f"🔎 Searching: `{query}`")
 
-    r = requests.get(
-        YT_API,
-        params={"key": API_KEY, "song": query},
-        timeout=15
-    )
+    try:
+        r = requests.get(
+            YT_API,
+            params={"key": API_KEY, "song": query},
+            timeout=15
+        )
+        data = r.json()
 
-    data = r.json()
-    if "stream_url" not in data:
-        return await m.edit("❌ Song not found")
+        if "stream_url" not in data:
+            return await m.edit("❌ Song not found")
 
-    await vc.play(
-        message.chat.id,
-        MediaStream(data["stream_url"])
-    )
+        await vc.play(
+            message.chat.id,
+            MediaStream(data["stream_url"])
+        )
 
-    await m.edit(f"▶️ Now Playing: `{data.get('title', query)}`")
+        await m.edit(f"▶️ Now Playing: `{data.get('title', query)}`")
 
+    except Exception as e:
+        print(e)
+        await m.edit(f"❌ Error: `{e}`")
+        
 # ================= START =================
 async def main():
     await app.start()
