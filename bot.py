@@ -6,14 +6,13 @@ from pytgcalls import PyTgCalls
 from pytgcalls.types import AudioPiped
 
 # ================= CONFIG =================
-API_ID = 
-API_HASH = "
-BOT_TOKEN = "
+API_ID = 21705136
+API_HASH = "78730e89d196e160b0f1992018c6cb19"
+BOT_TOKEN = "8094733589:AAGTYB6rmrT5Z7UOrRAxTBfbdzthlV9hZW4"
 
 # Assistant Account ka Session (Jo gen_session.py se nikala tha)
-STRING_SESSION = "BQH......" 
+STRING_SESSION = "BQHjcR4AqDhgN5wBQ0HGXdB-EuCqpJR-X5WSkzIl4rtnE2Th0GuKdTkiB7cBGv1yQktvkMX_IYNbmyc50ttgcbbiEh1aq9zRsZqsulQmLz412A_2PCC2z6iN0S0_09c2KgS-iB-MZppIs2ejlfFRwt1_lzzvsJdDC2BD6LkCKx_BXTS2xiXOLqBcraop--fRM1LxQ0i3BkZVfgAPnURFuJLhiWpF7HlmrlvHalduG6Q2zKw6hAtcnTbtZmmcM58U8oXdt3_KYMgi1s4BDiT31_lf6ncgcJZnZd3XH4sXX4EBYZne4uSiH2fVa-ChQN8Ff74YbJQo15NqD-dXpYY7P9o_kDPRngAAAAGd7PcCAA" 
 
-# Aapki VPS API URL
 API_BASE_URL = "http://103.25.175.169:8000"
 
 # Global Variables
