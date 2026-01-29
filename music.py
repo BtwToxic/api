@@ -3,7 +3,7 @@ import requests
 from pyrogram import Client, filters
 from pytgcalls import PyTgCalls
 from pytgcalls.types import MediaStream
-from pytgcalls.types import AudioPiped # Import zaroori hai
+from pytgcalls.types.stream import AudioPiped 
 
 # ================= CONFIG =================
 API_ID = 21705136
@@ -22,6 +22,7 @@ userbot = Client("assistant", api_id=API_ID, api_hash=API_HASH, session_string=U
 vc = PyTgCalls(userbot)
 
 # ================= PLAY COMMAND =================
+
 @bot.on_message(filters.command("play") & filters.group)
 async def play_cmd(_, message):
     if len(message.command) < 2:
@@ -31,24 +32,31 @@ async def play_cmd(_, message):
     msg = await message.reply("🔎 Searching...")
 
     try:
-        r = requests.get(YT_API, params={"key": API_KEY, "song": query}, timeout=15).json()
+        # Assistant check
+        await ensure_assistant(message.chat.id)
+
+        r = requests.get(
+            YT_API,
+            params={"key": API_KEY, "song": query},
+            timeout=15
+        ).json()
 
         if "stream_url" not in r:
             return await msg.edit("❌ Song not found")
 
-        # Play with AudioPiped
+        # Play Logic for v2.x
         await vc.play(
             message.chat.id,
             MediaStream(
                 r["stream_url"],
-                AudioPiped()
+                AudioPiped(), # Iska import fix ho gaya hai
             )
         )
+
         await msg.edit(f"▶️ Now Playing: `{r.get('title', query)}`")
 
     except Exception as e:
         await msg.edit(f"❌ Error: `{e}`")
-
 # ================= START =================
 async def main():
     await bot.start()
