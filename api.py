@@ -7,34 +7,32 @@ from fastapi.responses import FileResponse
 import redis
 import yt_dlp
 
-# ---------------- CONFIG ----------------
-YOUR_VPS_IP = "103.25.175.169"      # change if needed
+# ================= CONFIG =================
+YOUR_VPS_IP = "103.25.175.169"
 REDIS_HOST = "127.0.0.1"
 REDIS_PORT = 6379
 
-CACHE_TTL = 1800                   # 30 min
-FREE_KEY_EXPIRY = 86400            # 24 hours
+CACHE_TTL = 1800
+FREE_KEY_EXPIRY = 86400
 DOWNLOAD_FOLDER = "downloads"
 
 os.makedirs(DOWNLOAD_FOLDER, exist_ok=True)
 
-# ---------------- REDIS CLIENTS ----------------
+# ================= REDIS =================
 r_cache = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, decode_responses=True)
 r_queue = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, decode_responses=True)
 r_keys  = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, decode_responses=True)
 
-# ---------------- FASTAPI ----------------
-app = FastAPI(title="Standalone YT Streaming API")
+# ================= FASTAPI =================
+app = FastAPI(title="YT Audio Streaming API")
 
-# ---------------- YT LOGIC ----------------
+# ================= YT LOGIC =================
 class YTApi:
     base = "https://www.youtube.com/watch?v="
 
     async def search(self, query: str):
-        ydl_opts = {"quiet": True}
-
         def _search():
-            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            with yt_dlp.YoutubeDL({"quiet": True}) as ydl:
                 data = ydl.extract_info(f"ytsearch1:{query}", download=False)
                 if data and data.get("entries"):
                     e = data["entries"][0]
@@ -44,37 +42,45 @@ class YTApi:
                         "duration": e.get("duration", 0)
                     }
                 return None
-
         return await asyncio.to_thread(_search)
 
-    async def _download():
-    ydl_opts = {
-        "format": "bestaudio/best",
-        "quiet": True,
-        "noplaylist": True,
+    async def download(self, video_id: str):
+        out = f"{DOWNLOAD_FOLDER}/{video_id}.m4a"
+        if Path(out).exists():
+            return out
 
-        # 🔥 IMPORTANT FIX
-        "extractor_args": {
-            "youtube": {
-                "player_client": ["android"],
-                "skip": ["webpage"]
-            }
-        },
+        ydl_opts = {
+            "format": "bestaudio[ext=m4a]/bestaudio",
+            "quiet": True,
+            "noplaylist": True,
 
-        # fake headers
-        "http_headers": {
-            "User-Agent": "com.google.android.youtube/19.09.37 (Linux; U; Android 11)"
-        },
+            # 🔥 ANTI-403 FIX
+            "extractor_args": {
+                "youtube": {
+                    "player_client": ["android_music", "android"],
+                    "player_skip": ["webpage", "configs"]
+                }
+            },
 
-        "outtmpl": f"{DOWNLOAD_FOLDER}/{video_id}.%(ext)s"
-    }
+            "http_headers": {
+                "User-Agent":
+                    "com.google.android.apps.youtube.music/6.04.52 "
+                    "(Linux; Android 14)"
+            },
 
-    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        ydl.download([self.base + video_id])
+            "outtmpl": out
+        }
+
+        def _dl():
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                ydl.download([self.base + video_id])
+            return out
+
+        return await asyncio.to_thread(_dl)
 
 yt_api = YTApi()
 
-# ---------------- KEY SYSTEM ----------------
+# ================= KEY SYSTEM =================
 def gen_key(plan="free"):
     key = secrets.token_hex(16)
     r_keys.hset(f"key:{key}", mapping={
@@ -99,15 +105,16 @@ def check_key(key: str):
 
     return True, data
 
-# ---------------- QUEUE ----------------
+# ================= QUEUE =================
 def add_to_queue(title, key, priority):
-    job = {
-        "title": title,
-        "key": key,
-        "priority": priority,
-        "time": int(time.time())
-    }
-    r_queue.zadd("queue", {json.dumps(job): priority})
+    r_queue.zadd(
+        "queue",
+        {json.dumps({
+            "title": title,
+            "key": key,
+            "time": int(time.time())
+        }): priority}
+    )
 
 def pop_queue():
     items = r_queue.zrange("queue", 0, 0)
@@ -116,19 +123,18 @@ def pop_queue():
     r_queue.zrem("queue", items[0])
     return json.loads(items[0])
 
-# ---------------- ADMIN ----------------
-@app.get("/key/gen")
+# ================= ADMIN =================
+@app.get("/key")
 async def gen_key_web():
-    key = gen_key("free")
-    return {"api_key": key, "plan": "free"}
+    return {"api_key": gen_key("free"), "plan": "free"}
 
 @app.post("/key/revoke")
 async def api_revoke(key: str):
     revoke_key(key)
     return {"revoked": True}
 
-# ---------------- PLAY ----------------
-@app.get("/v1/play")
+# ================= PLAY =================
+@app.get("/toxic/api")
 async def play(key: str, song: str):
     ok, data = check_key(key)
     if not ok:
@@ -137,34 +143,30 @@ async def play(key: str, song: str):
     cache_key = f"song:{song.lower()}"
     cached = r_cache.get(cache_key)
 
-    title = song
-
     if cached:
-        stream_url = cached
-    else:
-        track = await yt_api.search(song)
-        if not track:
-            raise HTTPException(404, "Song not found")
+        return {"stream_url": cached, "plan": data["plan"]}
 
-        title = track["title"]
-        path = await yt_api.download(track["id"])
+    track = await yt_api.search(song)
+    if not track:
+        raise HTTPException(404, "Song not found")
 
-        if not path or not Path(path).exists():
-            raise HTTPException(500, "Download failed")
+    path = await yt_api.download(track["id"])
+    if not Path(path).exists():
+        raise HTTPException(500, "Download failed")
 
-        stream_url = f"http://{YOUR_VPS_IP}:8000/stream/{os.path.basename(path)}"
-        r_cache.setex(cache_key, CACHE_TTL, stream_url)
+    stream_url = f"http://{YOUR_VPS_IP}:8000/stream/{os.path.basename(path)}"
+    r_cache.setex(cache_key, CACHE_TTL, stream_url)
 
     priority = 10 if data["plan"] == "pro" else 0
-    add_to_queue(title, key, priority)
+    add_to_queue(track["title"], key, priority)
 
     return {
-        "title": title,
+        "title": track["title"],
         "stream_url": stream_url,
         "plan": data["plan"]
     }
 
-# ---------------- STREAM ----------------
+# ================= STREAM =================
 @app.get("/stream/{file}")
 async def stream(file: str):
     path = f"{DOWNLOAD_FOLDER}/{file}"
@@ -172,10 +174,8 @@ async def stream(file: str):
         raise HTTPException(404, "File not found")
     return FileResponse(path)
 
-# ---------------- QUEUE POP ----------------
+# ================= QUEUE POP =================
 @app.get("/queue/pop")
 async def queue_pop():
     job = pop_queue()
-    if not job:
-        return {"queue": "empty"}
-    return job
+    return job or {"queue": "empty"}
