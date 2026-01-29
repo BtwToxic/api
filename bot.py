@@ -3,7 +3,7 @@ import aiohttp
 from pyrogram import Client, filters
 from pyrogram.types import Message
 from pytgcalls import PyTgCalls
-from pytgcalls.types import AudioPiped
+from pytgcalls.types.input_stream import AudioPiped
 
 # ================= CONFIG =================
 API_ID = 21705136
