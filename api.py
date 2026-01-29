@@ -28,17 +28,15 @@ class YTApi:
     base = "https://www.youtube.com/watch?v="
 
     async def search(self, query):
-        from py_yt import VideosSearch
-        searcher = VideosSearch(query, limit=1)
-        res = await searcher.next()
-        if res and res["result"]:
-            data = res["result"][0]
-            return {
-                "id": data.get("id"),
-                "title": data.get("title"),
-                "duration": data.get("duration")
-            }
-        return None
+        opts = {"quiet": True, "format": "bestaudio"}
+        def _search():
+            with yt_dlp.YoutubeDL(opts) as ydl:
+                result = ydl.extract_info(f"ytsearch1:{query}", download=False)
+                if "entries" in result and len(result["entries"]) > 0:
+                    e = result["entries"][0]
+                    return {"id": e["id"], "title": e["title"], "duration": e.get("duration")}
+                return None
+        return await asyncio.to_thread(_search)
 
     async def download(self, video_id):
         url = self.base + video_id
@@ -63,7 +61,7 @@ class YTApi:
             return filename
 
         return await asyncio.to_thread(_download)
-
+        
 yt_api = YTApi()
 
 # ---------------- KEYS ----------------
